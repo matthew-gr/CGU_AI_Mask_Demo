@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { SEED_IDENTITIES, SEED_DICTIONARIES, SYSTEM_PROMPT } from './seedData'
 import ChatTab from './components/ChatTab'
+import SideBySideTab from './components/SideBySideTab'
 import IdentityChartTab from './components/IdentityChartTab'
 import DictionariesTab from './components/DictionariesTab'
 import ApiKeyModal from './components/ApiKeyModal'
@@ -25,6 +26,7 @@ export default function App() {
   const [identityChart, setIdentityChart] = useState(() => structuredClone(SEED_IDENTITIES))
   const [dictionaries, setDictionaries] = useState(() => structuredClone(SEED_DICTIONARIES))
   const [messages, setMessages] = useState([])
+  const [sideBySideRows, setSideBySideRows] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [llmReviewEnabled, setLlmReviewEnabled] = useState(false)
   const [reviewStatus, setReviewStatus] = useState(null)
@@ -38,8 +40,30 @@ export default function App() {
 
   const resetSession = useCallback(() => {
     setMessages([])
+    setSideBySideRows([])
     setIdentityChart(structuredClone(SEED_IDENTITIES))
     setDictionaries(structuredClone(SEED_DICTIONARIES))
+  }, [])
+
+  // Create an entity with a specific token ID (for unknown rehydrator tokens)
+  const handleCreateWithToken = useCallback((token, canonicalName, entityType) => {
+    const isDictType = DICTIONARY_TYPES.has(entityType)
+    const newEntry = {
+      id: crypto.randomUUID(),
+      token,
+      canonicalName,
+      aliases: [],
+      entityType,
+      firstSeen: new Date().toISOString(),
+      linkedTo: null,
+      ...(isDictType ? { source: 'manual', notes: '' } : { role: '' }),
+    }
+    if (isDictType) {
+      setDictionaries(prev => [...prev, newEntry])
+    } else {
+      setIdentityChart(prev => [...prev, newEntry])
+    }
+    return newEntry
   }, [])
 
   // Manual tagging callback — adds entity from UI tagging
@@ -232,6 +256,7 @@ export default function App() {
           <nav className="flex bg-gray-100 rounded-lg p-0.5">
             {[
               { id: 'chat', label: 'Chat' },
+              { id: 'sidebyside', label: 'Side-by-Side' },
               { id: 'identity', label: 'Identity Chart', count: identityChart.length },
               { id: 'dictionaries', label: 'Dictionaries', count: dictionaries.length },
             ].map(tab => (
@@ -278,6 +303,22 @@ export default function App() {
             reviewStatus={reviewStatus}
             onManualTag={handleManualTag}
             onMapToExisting={handleMapToExisting}
+          />
+        )}
+        {activeTab === 'sidebyside' && (
+          <SideBySideTab
+            messages={messages}
+            identityChart={identityChart}
+            dictionaries={dictionaries}
+            setIdentityChart={setIdentityChart}
+            setDictionaries={setDictionaries}
+            onManualTag={handleManualTag}
+            onMapToExisting={handleMapToExisting}
+            onCreateWithToken={handleCreateWithToken}
+            onNavigateToChart={() => setActiveTab('identity')}
+            onNavigateToDictionaries={() => setActiveTab('dictionaries')}
+            rows={sideBySideRows}
+            setRows={setSideBySideRows}
           />
         )}
         {activeTab === 'identity' && (

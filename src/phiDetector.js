@@ -93,10 +93,11 @@ function buildTokenString(token, matchedText, entry) {
   return `[${token}]`
 }
 
-// Find entry in either chart or dictionaries
+// Find entry in either chart or dictionaries (case-insensitive token match)
 function findEntry(token, identityChart, dictionaries) {
-  return identityChart.find(e => e.token === token) ||
-         dictionaries.find(e => e.token === token)
+  const upper = token.toUpperCase()
+  return identityChart.find(e => e.token.toUpperCase() === upper) ||
+         dictionaries.find(e => e.token.toUpperCase() === upper)
 }
 
 // Find or create a token for a detected value
@@ -329,16 +330,15 @@ export function rehydrate(text, identityChart, dictionaries) {
   let result = text
   const allEntries = [...identityChart, ...dictionaries]
 
-  // First handle alias-preserving tokens: [TOKEN|ALIAS_N]
-  const aliasTokenRegex = /\[([A-Z_]+_\d+)\|ALIAS_(\d+)\]/g
-  result = result.replace(aliasTokenRegex, (full, token, aliasIdx) => {
-    const entry = allEntries.find(e => e.token === token)
+  // First handle alias-preserving tokens: [TOKEN|ALIAS_N] (case-insensitive)
+  const aliasTokenRegex = /\[([A-Za-z_]+_\d+)\|ALIAS_(\d+)\]/gi
+  result = result.replace(aliasTokenRegex, (full, tokenRaw, aliasIdx) => {
+    const entry = allEntries.find(e => e.token.toLowerCase() === tokenRaw.toLowerCase())
     if (!entry) return full
     const idx = parseInt(aliasIdx, 10) - 1
     if (idx >= 0 && idx < entry.aliases.length) {
       return entry.aliases[idx]
     }
-    // Fallback: if linked, use linked canonical
     if (entry.linkedTo) {
       const linked = allEntries.find(e => e.token === entry.linkedTo)
       if (linked) return linked.canonicalName
@@ -346,16 +346,17 @@ export function rehydrate(text, identityChart, dictionaries) {
     return entry.canonicalName
   })
 
-  // Then handle plain tokens: [TOKEN]
+  // Then handle plain tokens: [TOKEN] (case-insensitive)
   const entries = allEntries.sort((a, b) => b.token.length - a.token.length)
   for (const entry of entries) {
-    const tokenStr = `[${entry.token}]`
+    const escaped = entry.token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const tokenRegex = new RegExp(`\\[${escaped}\\]`, 'gi')
     let replacement = entry.canonicalName
     if (entry.linkedTo) {
       const linked = allEntries.find(e => e.token === entry.linkedTo)
       if (linked) replacement = linked.canonicalName
     }
-    result = result.split(tokenStr).join(replacement)
+    result = result.replace(tokenRegex, replacement)
   }
 
   return result
