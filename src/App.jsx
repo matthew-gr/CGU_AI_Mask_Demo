@@ -19,8 +19,9 @@ Do NOT include entities that were already detected. Return only the JSON array.`
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('chat')
-  const [apiKey, setApiKey] = useState('')
-  const [showApiModal, setShowApiModal] = useState(true)
+  const envKey = import.meta.env.VITE_ANTHROPIC_API_KEY || ''
+  const [apiKey, setApiKey] = useState(envKey)
+  const [showApiModal, setShowApiModal] = useState(!envKey)
   const [identityChart, setIdentityChart] = useState(() => structuredClone(SEED_IDENTITIES))
   const [dictionaries, setDictionaries] = useState(() => structuredClone(SEED_DICTIONARIES))
   const [messages, setMessages] = useState([])
